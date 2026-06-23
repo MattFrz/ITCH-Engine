@@ -1,3 +1,3 @@
 # Failure Modes
 
-<!-- Lead artifact — queue position, delayed-data decay -->
+<!-- Lead artifact - queue position, delayed-data decay -->
