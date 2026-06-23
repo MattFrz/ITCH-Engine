@@ -27,9 +27,12 @@ env/
 .ruff_cache/
 
 # Data & secrets (Databento pulls, API keys)
-data/
+data/*
+!data/**/
+!data/**/.gitkeep
 *.parquet
 *.csv
+!validation/reference_snapshots/.gitkeep
 .env
 .env.*
 !.env.example
