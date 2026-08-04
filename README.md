@@ -2,7 +2,7 @@
 
 ### C++ Order Book Reconstruction & Latency-Realistic Backtesting Infrastructure (Nasdaq ITCH/MBO)
 
-## Plain-English summary
+## Summary
 
 **What data does this use?**
 Real Nasdaq exchange data (XNAS.ITCH, the MBO / market-by-order feed) for
