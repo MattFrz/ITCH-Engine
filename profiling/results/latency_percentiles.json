@@ -1,0 +1,25 @@
+{
+  "symbol": "AAPL",
+  "day": "2026-07-01",
+  "events": 398143,
+  "scalar_apply_event": {
+    "mean_us_per_event": 1.6201490419271467,
+    "p50_us": 1.6,
+    "p95_us": 2.8,
+    "p99_us": 3.3,
+    "sampled_calls": 24884,
+    "total_wall_s": 0.6620949,
+    "target_us": 20.0,
+    "meets_target": true
+  },
+  "batch_apply": {
+    "mean_us_per_event": 0.1919614309431536,
+    "total_wall_s": 0.0764281,
+    "events_per_second": 5209379.796174443
+  },
+  "boundary_overhead_us_per_event": 1.428187610983993,
+  "query_calls": {
+    "best_us": 0.828581,
+    "mid_price_us": 0.343229
+  }
+}

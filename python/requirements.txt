@@ -1,0 +1,8 @@
+numpy>=1.24
+pandas>=2.0
+pyarrow>=11.0
+plotly>=5.9
+pybind11>=2.11
+streamlit>=1.28
+# Optional: only needed to pull real XNAS.ITCH data (set DATABENTO_API_KEY)
+# databento>=0.30
