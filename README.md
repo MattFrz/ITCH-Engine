@@ -4,6 +4,8 @@
 
 ## Summary
 
+ITCH is the name of Nasdaq's market data protocol, the format the exchange uses to broadcast every order-level event (adds, cancels, modifies, executions) to the world. It is not an acronym: it is the playful companion to OUCH, Nasdaq's order-entry protocol, and neither has an official expansion. This project consumes the TotalView-ITCH feed (via Databento's XNAS.ITCH dataset) and rebuilds the full limit order book from it, so the name reads exactly as intended: an engine that processes Nasdaq ITCH data.
+
 **What data does this use?**
 Real Nasdaq exchange data (XNAS.ITCH, the MBO / market-by-order feed) for
 one stock, one trading day, pulled live from Databento. Every single order
