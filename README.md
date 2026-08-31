@@ -233,8 +233,14 @@ py -3.9 profiling/profile_pybind_boundary.py
 ```
 
 ```bash
-py -3.9 -m streamlit run viewer/app.py
+py -3.9 -m streamlit run viewer/app.py --server.address localhost
 ```
+
+(`--server.address localhost` keeps the viewer on the loopback interface.
+Streamlit's default is `0.0.0.0`, which publishes an unauthenticated
+dashboard to every host on your network. It is not set in
+`.streamlit/config.toml` because hosted deployments need to bind
+externally.)
 
 Linux/macOS equivalents:
 
@@ -246,7 +252,7 @@ cmake --build build
 python validation/validate_book.py
 python scripts/run_backtest.py          # --rth-only restricts to 09:30-16:00 ET
 python profiling/profile_pybind_boundary.py
-streamlit run viewer/app.py
+streamlit run viewer/app.py --server.address localhost
 ```
 
 Step order matters: build first, then validation (ingests data on first
