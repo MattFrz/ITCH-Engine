@@ -34,11 +34,6 @@ public:
     // shrinking an order never costs it priority. O(1).
     void reduce(QueueIt it, Qty by);
 
-    // Fills `qty` from the front of the queue (price-time priority).
-    // Front orders are consumed FIFO; a partially filled front order stays at
-    // the front with reduced quantity.
-    void execute_from_front(Qty qty);
-
     Qty total_qty() const { return total_qty_; }
     std::size_t order_count() const { return queue_.size(); }
     bool empty() const { return queue_.empty(); }

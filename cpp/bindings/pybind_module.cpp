@@ -92,7 +92,9 @@ PYBIND11_MODULE(itch_engine_cpp, m) {
         .def("order_qty", &OrderBook::order_qty, py::arg("order_id"))
         .def("queue_ahead", &OrderBook::queue_ahead, py::arg("order_id"))
         .def_property_readonly("events_processed", &OrderBook::events_processed)
+        .def("clear", &OrderBook::clear)
         .def_property_readonly("unknown_order_events", &OrderBook::unknown_order_events)
+        .def_property_readonly("clears_applied", &OrderBook::clears_applied)
         .def_property_readonly("bid_level_count", &OrderBook::bid_level_count)
         .def_property_readonly("ask_level_count", &OrderBook::ask_level_count)
         .def_property_readonly("open_order_count", &OrderBook::open_order_count);

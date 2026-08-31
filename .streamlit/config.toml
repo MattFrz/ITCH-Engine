@@ -1,10 +1,17 @@
 [theme]
 base = "dark"
-primaryColor = "#22d3ee"
-backgroundColor = "#0b0f19"
-secondaryBackgroundColor = "#111827"
-textColor = "#e5e7eb"
+primaryColor = "#3fbfd4"
+backgroundColor = "#080b12"
+secondaryBackgroundColor = "#0f141d"
+textColor = "#e8ebf1"
 font = "sans serif"
+
+[server]
+# Bind loopback only. Streamlit's default is 0.0.0.0, which publishes this
+# dashboard to every host on the local network and prints a LAN and public
+# URL on startup. It is a local analysis tool over local files - it has no
+# authentication and no reason to listen on an external interface.
+address = "localhost"
 
 [browser]
 gatherUsageStats = false

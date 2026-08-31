@@ -150,11 +150,17 @@ def write_outputs(
                 float(passive["queue_ahead_at_join"].mean()) if len(passive) else None
             ),
             "fills": int(len(result.fills)),
+            # Reported separately so the naive-vs-realistic gap can be
+            # decomposed rather than hand-waved: fees are a known, constant
+            # cost, and whatever is left over is queue position and latency.
+            "fees_paid_usd": float(result.fees_paid),
+            "realistic_pnl_before_fees_usd": realistic_pnl + float(result.fees_paid),
             "events_processed": int(result.events_processed),
             "unknown_order_events": int(result.unknown_order_events),
             "backtest_wall_time_s": float(result.elapsed_s),
             "events_per_second": events_per_s,
         },
+        "fee_schedule": result.fee_schedule,
         "equity_realistic": _equity_records(result.equity),
         "equity_naive": _equity_records(naive_equity),
         "latency_histogram": latency_histogram(result.boundary_ns),

@@ -26,7 +26,7 @@ the reconstruction exact and makes the model conservative for small sizes.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List
 
 SIDE_BID = 0
 SIDE_ASK = 1
@@ -56,7 +56,6 @@ class SimOrder:
     queue_ahead_at_join: int = 0
     filled_qty: int = 0
     status: str = "pending"   # pending -> live -> filled | cancelled
-    cancel_arrival_ts: Optional[int] = None
 
     @property
     def remaining(self) -> int:

@@ -32,6 +32,7 @@ import pandas as pd
 
 import itch_engine_cpp as cpp
 
+from itch_engine.backtest.fee_model import FeeModel
 from itch_engine.backtest.fill_model import FillModel, SimOrder, SIDE_ASK, SIDE_BID
 from itch_engine.backtest.latency_model import LatencyModel
 
@@ -57,6 +58,8 @@ class BacktestResult:
     events_processed: int
     unknown_order_events: int
     elapsed_s: float
+    fees_paid: float = 0.0        # net exchange fees, minus maker rebates
+    fee_schedule: dict = field(default_factory=dict)
 
 
 def run_backtest(
@@ -68,6 +71,7 @@ def run_backtest(
     boundary_sample_every: int = 64,
     warmup_ns: int = 60_000_000_000,           # let the book build for 60 s
     order_ttl_ns: int = 5_000_000_000,         # unfilled passive orders expire
+    fees: FeeModel = None,                      # exchange fee/rebate schedule
     sample_window: tuple = None,               # (start_ns, end_ns): only sample
                                                # the strategy inside this window
                                                # (e.g. regular trading hours)
@@ -88,8 +92,11 @@ def run_backtest(
     live: List[SimOrder] = []      # resting phantom orders
     next_ref = 1
 
+    fees = fees if fees is not None else FeeModel()
+
     position = 0
     cash = 0.0
+    fees_paid = 0.0
     fills_seen = 0
 
     equity_rows = []
@@ -175,14 +182,19 @@ def run_backtest(
                     fill_model.on_cancel(order, ev_side, ev_price, int(qty[i]), before)
 
         # --- apply the event to the exchange book (timed sample) -----------
+        # Unbox the numpy scalars *before* starting the clock. Leaving the
+        # int() calls inside the timed region charged numpy-to-Python
+        # conversion to the pybind11 boundary and overstated the crossing.
+        ev_oid = int(order_id[i])
+        ev_sd = int(side[i])
+        ev_px = int(price[i])
+        ev_qty = int(qty[i])
         if i % boundary_sample_every == 0:
             c0 = time.perf_counter_ns()
-            exchange.apply_event(now, int(order_id[i]), ev_type,
-                                 int(side[i]), int(price[i]), int(qty[i]))
+            exchange.apply_event(now, ev_oid, ev_type, ev_sd, ev_px, ev_qty)
             boundary_samples.append(time.perf_counter_ns() - c0)
         else:
-            exchange.apply_event(now, int(order_id[i]), ev_type,
-                                 int(side[i]), int(price[i]), int(qty[i]))
+            exchange.apply_event(now, ev_oid, ev_type, ev_sd, ev_px, ev_qty)
 
         if ev_type == EVENT_EXECUTE and live:
             ev_side, ev_price = int(side[i]), int(price[i])
@@ -195,6 +207,11 @@ def run_backtest(
                 signed = f.qty if f.side == SIDE_BID else -f.qty
                 position += signed
                 cash -= signed * (f.price / cpp.PRICE_SCALE)
+                # Exchange economics: a taker fee is a debit, a maker rebate
+                # a credit. Both hit cash, so the equity curve carries them.
+                cost = fees.cost_for(f.qty, f.aggressive)
+                cash -= cost
+                fees_paid += cost
             fills_seen = len(fill_model.fills)
         if live:
             for o in live:
@@ -235,4 +252,6 @@ def run_backtest(
         events_processed=exchange.events_processed,
         unknown_order_events=exchange.unknown_order_events,
         elapsed_s=elapsed,
+        fees_paid=fees_paid,
+        fee_schedule=fees.describe(),
     )

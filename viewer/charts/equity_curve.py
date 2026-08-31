@@ -17,7 +17,9 @@ def figure(metrics: dict) -> go.Figure:
         rows = metrics.get(key, [])
         if not rows:
             continue
-        t = pd.to_datetime([r["ts"] for r in rows], unit="ns")
+        # Exchange time, not UTC: rendering naive UTC put the 09:30 open at
+        # "13:30" on the axis.
+        t = _style.to_chart_time([r["ts"] for r in rows])
         fig.add_trace(go.Scatter(
             x=t, y=[r["equity"] for r in rows], name=name,
             mode="lines", line=dict(color=color, width=width),
@@ -26,7 +28,7 @@ def figure(metrics: dict) -> go.Figure:
     fig.add_hline(y=0, line_color=_style.MUTED, line_width=1, line_dash="dot")
     _style.apply(
         fig, "Equity - the same signal, two fill assumptions",
-        "identical OFI decisions; the gap is entirely fill realism",
+        "same signal, same clock; the gap is execution realism plus fees",
     )
     fig.update_yaxes(title_text="PnL (USD)", tickprefix="$", tickformat=",")
     fig.update_xaxes(title_text="")

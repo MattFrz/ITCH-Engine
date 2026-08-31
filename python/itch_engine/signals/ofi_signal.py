@@ -110,6 +110,47 @@ def signal_decay(quotes: pd.DataFrame, window_ns: int = 1_000_000_000,
     return out
 
 
+def _ofi_on_grid(quotes: pd.DataFrame, at: np.ndarray, window_ns: int,
+                 sample_interval_ns: int) -> np.ndarray:
+    """Windowed OFI evaluated on a fixed sampling grid.
+
+    `at[i]` is the index of the last quote at or before grid point i, i.e.
+    exactly what a strategy sampling on that clock would have seen. OFI
+    increments are formed between *consecutive grid observations*, matching
+    OFIStrategy, rather than between consecutive quote updates.
+    """
+    safe = np.clip(at, 0, None)
+    bp = quotes["bid_px"].to_numpy(np.float64)[safe]
+    bq = quotes["bid_qty"].to_numpy(np.float64)[safe]
+    ap = quotes["ask_px"].to_numpy(np.float64)[safe]
+    aq = quotes["ask_qty"].to_numpy(np.float64)[safe]
+
+    e = np.zeros(len(at))
+    e[1:] = (
+        (bp[1:] >= bp[:-1]) * bq[1:] - (bp[1:] <= bp[:-1]) * bq[:-1]
+        - (ap[1:] <= ap[:-1]) * aq[1:] + (ap[1:] >= ap[:-1]) * aq[:-1]
+    )
+    e[at < 0] = 0.0  # grid points before the first quote contribute nothing
+
+    # Trailing sum over the same wall-clock window the strategy uses. The
+    # grid is uniform, so the window is a fixed number of samples.
+    span = max(int(round(window_ns / sample_interval_ns)), 1)
+    csum = np.concatenate(([0.0], np.cumsum(e)))
+    lo = np.maximum(np.arange(len(e)) + 1 - span, 0)
+    return csum[1:] - csum[lo]
+
+
+def _running_std(x: np.ndarray, min_periods: int = 200) -> np.ndarray:
+    """Causal expanding standard deviation, matching the live Welford pass."""
+    n = np.arange(1, len(x) + 1, dtype=np.float64)
+    csum = np.cumsum(x)
+    csum2 = np.cumsum(x * x)
+    var = csum2 / n - (csum / n) ** 2
+    sd = np.sqrt(np.maximum(var, 0.0))
+    sd[: min_periods] = 0.0
+    return sd
+
+
 def naive_backtest(
     quotes: pd.DataFrame,
     window_ns: int = 1_000_000_000,
@@ -128,30 +169,43 @@ def naive_backtest(
     """
     ts = quotes["ts"].to_numpy(np.int64)
     mid = quotes["mid"].to_numpy(np.float64)
-    ofi = rolling_ofi(quotes, window_ns)
-    # z-score against an expanding std so the threshold is scale-free.
-    sd = pd.Series(ofi).expanding(min_periods=200).std().to_numpy()
-    z = np.where(sd > 0, ofi / sd, 0.0)
 
     lo = ts[0] if sample_window is None else max(ts[0], int(sample_window[0]))
     hi = ts[-1] if sample_window is None else min(ts[-1], int(sample_window[1]))
     grid = np.arange(lo, hi, sample_interval_ns)
     at = np.searchsorted(ts, grid, side="right") - 1
 
+    # The signal is built on the SAME clock the live strategy runs on.
+    #
+    # This used to compute OFI from every quote update and z-score it against
+    # an expanding std of that full series, while OFIStrategy computed one
+    # increment per 100 ms sample with a Welford std over samples. Two
+    # different signals at two different sampling rates, which meant part of
+    # the naive-vs-realistic gap was signal construction rather than fill
+    # realism - exactly the attribution this project exists to make. Both
+    # paths now derive the signal from best quotes observed on the sampling
+    # grid, so the only remaining differences are the ones under test:
+    # stale data, queue position, latency and fees.
+    ofi_grid = _ofi_on_grid(quotes, at, window_ns, sample_interval_ns)
+    sd = _running_std(ofi_grid, min_periods=200)
+    # np.where would still evaluate the division everywhere and warn on the
+    # zero-std warm-up samples; divide(where=) skips them instead.
+    z = np.divide(ofi_grid, sd, out=np.zeros_like(ofi_grid), where=sd > 0)
+
     position = 0
     cash = 0.0
     entry_ts = 0
     rows = []
-    for g, k in zip(grid, at):
+    for gi, (g, k) in enumerate(zip(grid, at)):
         if k < 0:
             continue
         m = mid[k]
         if position == 0:
-            if z[k] > threshold:
+            if z[gi] > threshold:
                 position = trade_qty
                 cash -= position * m
                 entry_ts = g
-            elif z[k] < -threshold:
+            elif z[gi] < -threshold:
                 position = -trade_qty
                 cash -= position * m
                 entry_ts = g

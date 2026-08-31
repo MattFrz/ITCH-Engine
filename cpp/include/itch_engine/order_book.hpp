@@ -47,7 +47,13 @@ public:
     // the standard tolerant stance for mid-session feed anomalies.
     void apply(const Event& ev);
 
+    // Drops every resting order and price level. The venue emits this at
+    // session start and when a halt resumes; without it, pre-halt orders
+    // rest forever in the reconstruction.
+    void clear();
+
     std::uint64_t events_processed() const { return events_processed_; }
+    std::uint64_t clears_applied() const { return clears_applied_; }
     std::uint64_t unknown_order_events() const { return unknown_order_events_; }
 
     // --- state queries -----------------------------------------------------
@@ -96,6 +102,7 @@ private:
     std::unordered_map<OrderId, OrderRef> index_;
     std::uint64_t events_processed_ = 0;
     std::uint64_t unknown_order_events_ = 0;
+    std::uint64_t clears_applied_ = 0;
 };
 
 }  // namespace itch

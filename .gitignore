@@ -53,3 +53,15 @@ Thumbs.db
 gmon.out
 htmlcov/
 .coverage
+
+# Agent skills (installed via `npx skills add`, not project source)
+.agents/
+.claude/
+skills-lock.json
+
+# Bundled demo run - the only data that IS committed, so a deployed viewer
+# has something to render. Synthetic (no API key), so nothing licensed.
+!demo/
+!demo/*.csv
+!demo/*.json
+!demo/*.parquet

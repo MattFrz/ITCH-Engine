@@ -1,0 +1,10 @@
+# Runtime dependencies for the post-trade viewer (viewer/app.py).
+#
+# This is the deploy target: the viewer is a static-file reader and never
+# imports the C++ engine, so it needs no compiler and no pybind11 here.
+# Building the engine itself uses python/requirements.txt instead.
+numpy>=1.24
+pandas>=2.0
+pyarrow>=11.0
+plotly>=5.9
+streamlit>=1.50

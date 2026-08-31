@@ -98,6 +98,9 @@ class ReferenceBook:
             o[2] -= fill
             if o[2] == 0:
                 self._drop(oid, o)
+        elif etype == 4:  # Clear: venue wiped the book
+            self.orders.clear()
+            self.queues.clear()
 
     def _drop(self, oid, o):
         key = (o[0], o[1])

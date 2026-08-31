@@ -21,14 +21,31 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from itch_engine import EVENT_ADD, EVENT_CANCEL, EVENT_EXECUTE, EVENT_MODIFY
+from itch_engine import (
+    EVENT_ADD,
+    EVENT_CANCEL,
+    EVENT_CLEAR,
+    EVENT_EXECUTE,
+    EVENT_MODIFY,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 
-# Databento MBO action codes -> internal event types. 'T'/'R'/'N' (trade
-# without book impact, clear, none) don't mutate per-order book state.
-ACTION_MAP = {"A": EVENT_ADD, "C": EVENT_CANCEL, "M": EVENT_MODIFY, "F": EVENT_EXECUTE}
+# Databento MBO action codes -> internal event types.
+#
+# 'R' (Clear) DOES mutate book state: the venue wipes resting orders at
+# session start and when a halt resumes. Dropping it leaves every pre-halt
+# order resting forever in the reconstruction, so it is mapped, not ignored.
+# 'T' (trade printed with no book impact, e.g. against hidden liquidity) and
+# 'N' (none) genuinely do not change per-order state.
+ACTION_MAP = {
+    "A": EVENT_ADD,
+    "C": EVENT_CANCEL,
+    "M": EVENT_MODIFY,
+    "F": EVENT_EXECUTE,
+    "R": EVENT_CLEAR,
+}
 SIDE_MAP = {"B": 0, "A": 1}
 
 
@@ -43,7 +60,10 @@ def normalize_day(raw_path: Path, symbol: str, day: str, force: bool = False) ->
     out.parent.mkdir(parents=True, exist_ok=True)
 
     raw = pd.read_parquet(raw_path)
-    mask = raw["action"].isin(ACTION_MAP) & raw["side"].isin(SIDE_MAP)
+    # Clear carries no meaningful side (venues emit 'N'), so it must not be
+    # filtered out by the side check the per-order actions need.
+    is_clear = raw["action"].eq("R")
+    mask = raw["action"].isin(ACTION_MAP) & (raw["side"].isin(SIDE_MAP) | is_clear)
     df = raw.loc[mask, ["ts_event", "order_id", "action", "side", "price", "size"]].copy()
 
     events = pd.DataFrame(
@@ -51,7 +71,8 @@ def normalize_day(raw_path: Path, symbol: str, day: str, force: bool = False) ->
             "ts": df["ts_event"].astype("int64").to_numpy(),
             "order_id": df["order_id"].astype("uint64").to_numpy(),
             "type": df["action"].map(ACTION_MAP).astype("uint8").to_numpy(),
-            "side": df["side"].map(SIDE_MAP).astype("uint8").to_numpy(),
+            # Clear rows have no side; 0 is a placeholder the book ignores.
+            "side": df["side"].map(SIDE_MAP).fillna(0).astype("uint8").to_numpy(),
             "price": df["price"].astype("int64").to_numpy(),
             "qty": df["size"].astype("int64").to_numpy(),
         }

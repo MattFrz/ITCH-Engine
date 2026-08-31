@@ -156,6 +156,33 @@ void test_depth() {
     CHECK(d[1].price == P(9.98) && d[1].qty == 20);
 }
 
+// A venue Clear wipes every resting order on both sides. Without this the
+// book carries pre-halt orders for the rest of the session.
+void test_clear_wipes_book() {
+    OrderBook book;
+    book.apply(add(1, Side::Bid, P(9.99), 10));
+    book.apply(add(2, Side::Ask, P(10.01), 20));
+    book.apply(add(3, Side::Bid, P(9.98), 30));
+    CHECK(book.open_order_count() == 3);
+
+    Event ev{};
+    ev.type = EventType::Clear;
+    book.apply(ev);
+
+    CHECK(book.clears_applied() == 1);
+    CHECK(book.open_order_count() == 0);
+    CHECK(book.bid_level_count() == 0);
+    CHECK(book.ask_level_count() == 0);
+    CHECK(!book.best().has_bid && !book.best().has_ask);
+    // A Clear is not an unknown-order anomaly.
+    CHECK(book.unknown_order_events() == 0);
+
+    // The book is reusable afterwards: post-resume orders rest normally.
+    book.apply(add(4, Side::Bid, P(9.95), 5));
+    CHECK(book.open_order_count() == 1);
+    CHECK(book.best().bid_price == P(9.95));
+}
+
 }  // namespace
 
 int main() {
@@ -167,6 +194,7 @@ int main() {
     test_modify_semantics();
     test_unknown_orders_tolerated();
     test_depth();
+    test_clear_wipes_book();
     std::printf("PASS: all order book tests (%d checks)\n", checks_run);
     return 0;
 }

@@ -24,7 +24,7 @@ def figure(snapshots: pd.DataFrame) -> go.Figure:
         vertical_spacing=0.06,
     )
     if {"bid", "ask"}.issubset(best.columns):
-        t = pd.to_datetime(best.index, unit="ns")
+        t = _style.to_chart_time(best.index)
         mid = (best["bid"] + best["ask"]) / 2 / PRICE_SCALE
         spread_bps = ((best["ask"] - best["bid"]) / PRICE_SCALE) / mid * 1e4
         fig.add_trace(go.Scatter(

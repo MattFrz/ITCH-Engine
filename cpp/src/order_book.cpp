@@ -12,6 +12,13 @@ void OrderBook::apply(const Event& ev) {
         return;
     }
 
+    // Clear references no order id, so it must be handled before the index
+    // lookup below (which would otherwise count it as an unknown order).
+    if (ev.type == EventType::Clear) {
+        clear();
+        return;
+    }
+
     auto found = index_.find(ev.order_id);
     if (found == index_.end()) {
         ++unknown_order_events_;
@@ -30,8 +37,16 @@ void OrderBook::apply(const Event& ev) {
             execute_order(ev, ref);
             break;
         case EventType::Add:
+        case EventType::Clear:
             break;  // handled above
     }
+}
+
+void OrderBook::clear() {
+    bids_.clear();
+    asks_.clear();
+    index_.clear();
+    ++clears_applied_;
 }
 
 void OrderBook::add_order(const Event& ev) {

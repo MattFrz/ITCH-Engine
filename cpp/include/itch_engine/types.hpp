@@ -24,6 +24,7 @@ enum class EventType : std::uint8_t {
     Cancel = 1,   // full or partial cancel (qty = amount removed)
     Modify = 2,   // price/qty replace; loses queue priority on price change or size-up
     Execute = 3,  // trade against resting order (fills from queue front)
+    Clear = 4,    // venue wiped the book (session start, post-halt resume)
 };
 
 struct Event {
