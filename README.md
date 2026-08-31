@@ -1,8 +1,15 @@
 # ITCH-Engine
 
 [![CI](https://github.com/MattFrz/ITCH-Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/MattFrz/ITCH-Engine/actions/workflows/ci.yml)
+[![Live demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://itch-engine-t4ngmjgaseufnqn5foske3.streamlit.app/)
 
 ### C++ Order Book Reconstruction & Latency-Realistic Backtesting Infrastructure (Nasdaq ITCH/MBO)
+
+**[Live demo: the post-trade viewer](https://itch-engine-t4ngmjgaseufnqn5foske3.streamlit.app/)** - equity
+curve, mark-out analysis, queue-depth breakdown, and a trade blotter with
+book-context drilldown. The deployed copy runs on the bundled synthetic day
+(labelled as such in its header); the numbers in this README come from a
+real 14.47M-message Nasdaq session.
 
 ## Summary
 
