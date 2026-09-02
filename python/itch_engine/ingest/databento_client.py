@@ -12,8 +12,8 @@ Two paths:
   end-to-end without credentials. The schema is identical to the real path.
 
 Raw schema (Databento MBO convention):
-    ts_event (int ns), order_id (uint64), action (A/C/M/F), side (B/A),
-    price (int64, 1e-9 USD), size (int64)
+    ts_event (int ns), sequence (uint32), order_id (uint64),
+    action (A/C/M/F/R), side (B/A/N), price (int64, 1e-9 USD), size (int64)
 """
 
 from __future__ import annotations
@@ -97,7 +97,15 @@ def _fetch_databento(symbol: str, day: str, api_key: str) -> pd.DataFrame:
     # price_type="fixed" keeps prices as int64 1e-9 USD (our internal
     # convention); pretty_ts=False keeps timestamps as int64 ns.
     df = store.to_df(price_type="fixed", pretty_ts=False).reset_index()
-    keep = ["ts_event", "order_id", "action", "side", "price", "size"]
+    # `sequence` is the feed's own message counter. It is the only exact join
+    # key against Databento's other schemas: `ts_event` is NOT safe, because an
+    # aggregated-book row can carry a different timestamp from the MBO record
+    # that produced it (see validation/validate_against_exchange.py). Kept even
+    # though the book itself never looks at it.
+    keep = ["ts_event", "sequence", "order_id", "action", "side", "price", "size"]
+    missing = [c for c in keep if c not in df.columns]
+    if missing:
+        raise SystemExit(f"MBO response is missing expected columns: {missing}")
     df = df[keep]
     if np.issubdtype(df["ts_event"].dtype, np.datetime64):
         df["ts_event"] = df["ts_event"].astype("int64")

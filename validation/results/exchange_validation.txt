@@ -1,0 +1,48 @@
+symbol=AAPL day=2026-07-30 schema=mbp-10
+events replayed: 14,270,119
+checkpoints: 3,774,380 (every timestamp at which the venue book changed)
+levels compared: 10 per side, 3 fields each
+field comparisons: 226,462,800
+
+checkpoints fully matching all 10 levels: 3,774,380 / 3,774,380 (100.0000%)
+field mismatches: 0 / 226,462,800 (0.000000%)
+
+per level (checkpoints where that level differed in any field):
+  level 00:          0 ( 0.0000%)
+  level 01:          0 ( 0.0000%)
+  level 02:          0 ( 0.0000%)
+  level 03:          0 ( 0.0000%)
+  level 04:          0 ( 0.0000%)
+  level 05:          0 ( 0.0000%)
+  level 06:          0 ( 0.0000%)
+  level 07:          0 ( 0.0000%)
+  level 08:          0 ( 0.0000%)
+  level 09:          0 ( 0.0000%)
+
+per field (across all levels):
+  bid price  :          0 ( 0.0000%)
+  bid size   :          0 ( 0.0000%)
+  bid count  :          0 ( 0.0000%)
+  ask price  :          0 ( 0.0000%)
+  ask size   :          0 ( 0.0000%)
+  ask count  :          0 ( 0.0000%)
+
+mismatch rate by hour (ET):
+  04:00          0 /     1,456  ( 0.0000%)
+  05:00          0 /     2,237  ( 0.0000%)
+  06:00          0 /     4,753  ( 0.0000%)
+  07:00          0 /     6,406  ( 0.0000%)
+  08:00          0 /     9,467  ( 0.0000%)
+  09:00          0 /   702,535  ( 0.0000%)
+  10:00          0 /   738,946  ( 0.0000%)
+  11:00          0 /   493,393  ( 0.0000%)
+  12:00          0 /   429,674  ( 0.0000%)
+  13:00          0 /   321,651  ( 0.0000%)
+  14:00          0 /   266,681  ( 0.0000%)
+  15:00          0 /   576,116  ( 0.0000%)
+  16:00          0 /    90,924  ( 0.0000%)
+  17:00          0 /    96,625  ( 0.0000%)
+  18:00          0 /    21,926  ( 0.0000%)
+  19:00          0 /    11,590  ( 0.0000%)
+
+RESULT: PASS - the reconstruction matches the venue's own aggregated book exactly, at every level and every checkpoint

@@ -1,5 +1,5 @@
 symbol=AAPL day=2026-07-30
-events replayed: 14,469,900
+events replayed: 14,270,119
 checkpoints: 1,000 random timestamps
 assertions: 8,000
 mismatches: 0

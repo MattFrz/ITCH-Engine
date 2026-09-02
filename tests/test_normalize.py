@@ -108,3 +108,61 @@ def test_dtypes_match_the_cpp_contract(tmp_path):
     assert events["side"].dtype == "uint8"
     assert events["price"].dtype == "int64"
     assert events["qty"].dtype == "int64"
+
+
+def test_execution_paired_cancel_is_dropped():
+    """Databento reports an execution twice: as a fill AND as a cancel.
+
+    Both records carry the same shares at the same timestamp for the same
+    order reference. Applying both removes the quantity twice. This went
+    undetected until the book was compared against the venue's own aggregated
+    book, because the C++ book and the Python reference book both applied both
+    and therefore agreed with each other perfectly.
+
+    See validation/validate_against_exchange.py.
+    """
+    from itch_engine.ingest.normalize import drop_execution_paired_cancels
+
+    df = pd.DataFrame(
+        {
+            "ts_event": [1, 1, 1, 1, 2, 3, 3],
+            "order_id": [10, 10, 10, 11, 10, 12, 12],
+            "action": ["A", "F", "C", "C", "C", "F", "C"],
+            "side": ["A", "A", "A", "A", "A", "B", "B"],
+            "price": [100, 100, 100, 100, 100, 200, 200],
+            "size": [50, 20, 20, 5, 10, 7, 7],
+        }
+    )
+    out, dropped = drop_execution_paired_cancels(df)
+
+    assert dropped == 2
+    assert len(out) == 5
+    # The cancel that shares a timestamp and order with a fill is gone...
+    paired = (out["ts_event"] == 1) & (out["order_id"] == 10) & (out["action"] == "C")
+    assert not paired.any()
+    # ...but the fill itself stays, because the fill model downstream treats a
+    # feed execution differently from a feed cancel.
+    fill = (out["ts_event"] == 1) & (out["order_id"] == 10) & (out["action"] == "F")
+    assert fill.any()
+    # An unrelated cancel at the same timestamp survives.
+    assert ((out["order_id"] == 11) & (out["action"] == "C")).any()
+    # So does a genuine cancel for the same order at a different timestamp.
+    assert ((out["ts_event"] == 2) & (out["action"] == "C")).any()
+
+
+def test_paired_cancel_filter_is_a_noop_without_fills():
+    from itch_engine.ingest.normalize import drop_execution_paired_cancels
+
+    df = pd.DataFrame(
+        {
+            "ts_event": [1, 2],
+            "order_id": [1, 1],
+            "action": ["A", "C"],
+            "side": ["B", "B"],
+            "price": [100, 100],
+            "size": [10, 10],
+        }
+    )
+    out, dropped = drop_execution_paired_cancels(df)
+    assert dropped == 0
+    assert len(out) == len(df)

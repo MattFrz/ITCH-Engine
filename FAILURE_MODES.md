@@ -1,7 +1,7 @@
 # Failure Modes
 
 The two ways a backtest lies, demonstrated with this engine's own numbers on
-**real Nasdaq data**: XNAS.ITCH MBO, AAPL, 2026-07-30, 14,469,900 messages
+**real Nasdaq data**: XNAS.ITCH MBO, AAPL, 2026-07-30, 14,270,119 messages
 (49.4% cancels, 49.2% adds, 1.4% executions - nearly every add is later
 cancelled, which is why the book's O(1) cancel path matters). Regenerate
 with a Databento key configured:
