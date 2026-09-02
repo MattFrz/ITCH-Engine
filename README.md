@@ -375,13 +375,20 @@ the deployed viewer use. Real market data is not redistributed in this repo.
 **Book validation** (`validation/results/validation_run.txt`):
 
 ```
-symbol=AAPL day=2026-07-30
-events replayed: 14,270,119
+symbol=AAPL day=2026-07-01
+events replayed: 398,143
 checkpoints: 1,000 random timestamps
-assertions: 8,000
+assertions: 7,495
 mismatches: 0
 RESULT: PASS - 0 drift across all sampled timestamps
 ```
+
+The committed artifact is the **synthetic** day on purpose: it is the run
+anyone can reproduce from a clean clone with no API key, and it is what the
+deployed viewer displays, so nothing derived from licensed data is published.
+The same check passes identically on the real session (14,270,119 events,
+1,000 checkpoints, 8,000 assertions, 0 mismatches) - run it yourself with
+`--day 2026-07-30` if you have the data cached.
 
 At every checkpoint the C++ book is compared against an independently
 written pure-Python reference book: top-5 levels per side (price, aggregate

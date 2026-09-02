@@ -1,6 +1,6 @@
-symbol=AAPL day=2026-07-30
-events replayed: 14,270,119
+symbol=AAPL day=2026-07-01
+events replayed: 398,143
 checkpoints: 1,000 random timestamps
-assertions: 8,000
+assertions: 7,495
 mismatches: 0
 RESULT: PASS - 0 drift across all sampled timestamps
