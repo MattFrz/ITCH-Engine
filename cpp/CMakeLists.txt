@@ -122,6 +122,7 @@ set(ITCH_TESTS
     test_differential        # research book vs low-latency book, same stream
     test_pipeline            # capture -> mold -> parser -> book equivalence
     test_execution           # strategy / risk / simulated order gateway
+    test_fuzz                # malformed network input must not read out of bounds
 )
 
 foreach(t IN LISTS ITCH_TESTS)
