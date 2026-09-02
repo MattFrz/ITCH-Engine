@@ -30,7 +30,8 @@ jobs:
 
       - name: Configure
         # pybind11 is located through the interpreter, so it must already be
-        # installed by the step above.
+        # installed by the step above. DPDK stays off: the whole point is that
+        # cmake works without it.
         run: >
           cmake -S . -B build
           -DCMAKE_BUILD_TYPE=Release
@@ -41,15 +42,88 @@ jobs:
         run: cmake --build build --config Release
 
       - name: C++ unit tests
+        # Research book semantics, the open-addressing index, MoldUDP64 gap and
+        # duplicate handling, the ITCH parser, the low-latency book, the
+        # research-vs-low-latency differential, the full packet pipeline, and
+        # the strategy/risk/gateway layer.
         run: ctest --test-dir build --build-config Release --output-on-failure
 
       - name: Python unit tests
         run: python -m pytest tests -q
 
       - name: Book validation (synthetic day, 0 drift required)
-        # Runs keyless, so it exercises the synthetic path. Any mismatch
-        # fails the build, which is the point of the deliverable.
+        # Runs keyless, so it exercises the synthetic path. Any mismatch fails
+        # the build, which is the point of the deliverable.
         run: python validation/validate_book.py --checkpoints 200
+
+      - name: Low-latency book validation (differential vs the research book)
+        run: python validation/validate_low_latency.py --checkpoints 200
 
       - name: End-to-end backtest
         run: python scripts/run_backtest.py
+
+  low-latency-pipeline:
+    name: packet pipeline (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r python/requirements.txt
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPYBIND11_FINDPYTHON=ON -DPython_EXECUTABLE="${{ steps.python.outputs.python-path }}"
+          cmake --build build --config Release
+
+      - name: Locate binaries
+        # Multi-config generators (Windows) put binaries in a config subfolder.
+        shell: bash
+        run: |
+          if [ -d build/cpp/Release ]; then echo "BIN=build/cpp/Release" >> $GITHUB_ENV;
+          else echo "BIN=build/cpp" >> $GITHUB_ENV; fi
+
+      - name: Export the day and build a MoldUDP64/ITCH capture
+        shell: bash
+        run: |
+          python scripts/export_events.py --symbol AAPL --day 2026-07-01
+          "$BIN/itch_make_capture" --input data/capture/AAPL_2026-07-01.evbin \
+            --symbol AAPL --output data/capture/AAPL_2026-07-01.itchcap
+
+      - name: Replay the capture and verify it reproduces the historical book
+        # The claim the packet simulator rests on: bytes on the wire reach the
+        # same book as the normalized parquet, at every checkpoint through the
+        # session. Exits non-zero on any divergence.
+        shell: bash
+        run: |
+          "$BIN/itch_replay" --capture data/capture/AAPL_2026-07-01.itchcap \
+            --verify data/capture/AAPL_2026-07-01.evbin --verify-checkpoints 200
+
+      - name: Replay into the research book too
+        shell: bash
+        run: |
+          "$BIN/itch_replay" --capture data/capture/AAPL_2026-07-01.itchcap \
+            --book research --quiet
+
+      - name: Performance regression check
+        # The allocation invariant is a hard failure. The timing floors are
+        # deliberately loose - a shared runner is not a latency measurement,
+        # and this is here to catch a categorical regression, not drift.
+        shell: bash
+        run: python scripts/check_bench_regression.py --bench "$BIN/bench_pipeline" --events 300000
+
+      - name: Book benchmark (informational)
+        shell: bash
+        run: "$BIN/bench_book --events 300000 --repeats 2"

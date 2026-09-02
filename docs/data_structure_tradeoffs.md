@@ -38,8 +38,8 @@ Chosen design (see `cpp/include/itch_engine/`):
 
 An intrusive doubly-linked list (nodes owned by a pool, no per-node
 allocation) is the production refinement of the same idea - same asymptotics,
-better constants. Documented as future work in `profiling/profile_cpp_core.md`;
-`std::list` keeps the code standard and the argument identical.
+better constants. That refinement now exists, as a second book rather than a
+replacement: see "The second book" below.
 
 ## Price levels: `std::map` vs alternatives
 
@@ -51,10 +51,11 @@ better constants. Documented as future work in `profiling/profile_cpp_core.md`;
   ~8-10 comparisons - not the bottleneck (the profile confirms the boundary
   and hashing dominate).
 
-A flat array indexed by tick offset from a reference price is the classic
-low-latency alternative (O(1) everything near the touch) and is listed as a
-future optimization. A hash map of levels alone is *wrong* for this use: it
-cannot answer "best price" or "next level down" without scanning.
+A hash map of levels alone is *wrong* for this use: it cannot answer "best
+price" or "next level down" without scanning. A flat array indexed by tick
+offset from a reference price is the classic low-latency alternative - O(1)
+everything - and is what the second book uses, with a hierarchical bitmap to
+answer "best" and "next level down" that the array alone cannot. See below.
 
 ## Fixed-point prices
 
@@ -70,3 +71,53 @@ levels' queue lengths and measurably slow; worse, most implementations
 "fix" it by dropping per-order identity (aggregating to price levels),
 which destroys the queue-position information that Phase 3's fill model -
 and the entire point of this project - depends on.
+
+---
+
+## The second book
+
+Everything above is about `itch::OrderBook`, the research book, and it still
+holds: the design is right for a book that has to be obviously correct and
+fast enough, and it is the validated reference the rest of the project trusts.
+
+It is also allocation-heavy by construction. Measured: **1.0638 allocations per
+event** - a `std::list` node per resting order, an `unordered_map` node per
+index entry, a red-black tree node per price level. That is fine at 8.5M
+events/s through a backtest and unacceptable on a feed handler, where the
+allocator is an unbounded pause waiting to happen.
+
+So `itch::book::LowLatencyOrderBook` sits beside it, applying the refinements
+this document listed as future work, with the trade-offs made the other way:
+
+| | research book | low-latency book |
+|---|---|---|
+| queue node | `std::list<RestingOrder>`, one allocation each | intrusive list over a preallocated pool, freelist pop/push |
+| price levels | `std::map`, O(log L), pointer chase per comparison | tick-indexed flat array + 3-level occupancy bitmap, O(1) |
+| best price | `begin()`, O(1) but a pointer chase | 3 dependent loads and 3 bit-scans |
+| next level down | tree iteration | one bitmap scan |
+| order index | `std::unordered_map` | open addressing, SoA keys, backward-shift delete, no rehash |
+| arbitrary prices | any `int64` works | tick grid + a sorted overflow list for off-grid and out-of-window prices |
+| allocations/event | 1.0638 | 0 |
+| mean ns/event | 118.2 | 17.0 |
+| p99 ns/event | 260 | 70 |
+
+The cost is that it is a great deal less obvious, which is why it is a second
+implementation and not an edit: `cpp/tests/test_differential.cpp` and
+`validation/validate_low_latency.py` hold it to the research book's exact
+behaviour, including FIFO order at every level and the anomaly counters, on
+generated streams and on real sessions.
+
+Two details worth carrying over from the argument above.
+
+**The tick array cannot address every price, and that matters.** The
+validation session contains adds at $0.0001 and at $199,999.00, and seven that
+are not on the penny grid. A flat array over a bounded window addresses none of
+those. Rejecting them would be a book that is fast and wrong, so they go into a
+small sorted overflow list, merged with the grid in price order for every
+query, behind a single `empty()` branch on the fast path.
+
+**Capacity became a latency parameter.** Because the low-latency book
+preallocates everything, sizing it generously is not free: it spreads the
+working set over memory that is never touched. Right-sizing the pools to the
+session was worth 60% in the mean and nearly 4x at p99. Full numbers in
+[low_latency_architecture.md](low_latency_architecture.md).

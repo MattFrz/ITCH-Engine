@@ -1,0 +1,10 @@
+symbol=AAPL day=2026-07-30
+events replayed: 14,270,119
+checkpoints: 1,000 random timestamps
+assertions: 31,118
+resting orders compared in exact FIFO order: 55,351
+low-latency book: peak orders 55,683 (of 131,072), peak levels 9,257 (of 32,768), off-grid levels 80
+order index: avg probes 1.175, max probe 13
+book memory: 7.5 MiB
+mismatches: 0
+RESULT: PASS - low-latency book matches the research book exactly at every sampled timestamp

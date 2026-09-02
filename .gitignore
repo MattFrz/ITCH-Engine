@@ -27,6 +27,18 @@ env/
 .mypy_cache/
 .ruff_cache/
 
+# Generated packet captures. Large (a real session is ~450 MB) and fully
+# reproducible: scripts/export_events.py then itch_make_capture.
+*.evbin
+*.itchcap
+
+# Licensed reference data pulled from Databento for the exchange-book
+# validation (~116 MB compressed). Not redistributable; re-pull with
+# scripts/pull_reference_snapshots.py. The PASS/FAIL summary it produces IS
+# committed, in validation/results/.
+*.dbn
+*.dbn.zst
+
 # Data & secrets (Databento pulls, API keys)
 output/
 output_archive/
@@ -56,7 +68,6 @@ htmlcov/
 
 # Agent skills (installed via `npx skills add`, not project source)
 .agents/
-.claude/
 skills-lock.json
 
 # Bundled demo run - the only data that IS committed, so a deployed viewer

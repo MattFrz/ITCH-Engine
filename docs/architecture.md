@@ -1,4 +1,14 @@
-# Architecture
+# Architecture (historical / research mode)
+
+This document describes the historical path: parquet in, backtest and viewer
+out. It is unchanged.
+
+There is a second execution path - network to book, no Python in it - described
+in [low_latency_architecture.md](low_latency_architecture.md). The two share
+one internal event representation (`MarketEvent`) and are held to identical
+order-book semantics by differential tests. Nothing below changed to make room
+for it.
+
 
 ```
 Databento XNAS.ITCH MBO (or the schema-identical synthetic generator)
@@ -37,7 +47,7 @@ viewer/app.py (Streamlit) + viewer/charts/*  ── static-file reader, never
 - `apply_event(...)` - one crossing per event, ~3.8 µs. Paid by the event
   loop, which needs per-event control flow in Python. Target <20 µs: met.
 - `apply_batch(arrays)` - one crossing per day, ~0.6 µs/event amortized
-  (~1.68M events/s on the real 14.5M-event day). Used by replay-only paths
+  (~1.68M events/s on the real 14.3M-event day). Used by replay-only paths
   (quote series, validation setup, profiling baseline).
 
 The boundary is ~84% of the scalar per-event cost, which is exactly why it
@@ -70,3 +80,42 @@ the correct direction for a tool whose job is debunking optimistic fills).
   arrivals in timestamp order.
 - All randomness (synthetic day, latency jitter, validation checkpoints)
   is seeded; every number in the README regenerates identically.
+
+## The second execution path
+
+The low-latency path is deliberately not wired into anything above. It reads
+packets, not parquet, and produces the same `MarketEvent` the historical path
+produces:
+
+```
+                                 MarketEvent
+                                      ^
+        events.parquet ---------------|            (this document)
+                                      |
+  UDP multicast -> MoldUDP64 -> ITCH --+            (low_latency_architecture.md)
+                                      |
+                                      v
+                    itch::OrderBook  or  itch::book::LowLatencyOrderBook
+```
+
+`itch::OrderBook` - the book everything in this document uses - gained one
+additive method, `apply(const MarketEvent&)`, so it can be driven from either
+side. Its existing `apply(const Event&)` path, its semantics and its
+performance are untouched, which the existing validation confirms on every run.
+
+The bridge between the two, for development and benchmarking without a live
+feed:
+
+```
+data/processed/.../events.parquet
+        |  scripts/export_events.py
+        v
+data/capture/SYMBOL_DATE.evbin        (MarketEvent records, verbatim)
+        |  build/cpp/itch_make_capture
+        v
+data/capture/SYMBOL_DATE.itchcap      (real ITCH messages in real MoldUDP64
+        |                              datagrams)
+        +--> build/cpp/itch_replay          decode from the file
+        +--> build/cpp/itch_replay --publish-group   put it on real multicast,
+                                                     received by itch_live
+```

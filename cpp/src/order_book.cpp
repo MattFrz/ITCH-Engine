@@ -42,6 +42,52 @@ void OrderBook::apply(const Event& ev) {
     }
 }
 
+void OrderBook::apply(const MarketEvent& ev) {
+    // Non-mutating actions (Trade prints, SystemEvent, Unknown) are counted as
+    // seen but leave the book alone - matching the historical path, which drops
+    // them at normalize time.
+    if (!mutates_book(ev.type)) {
+        return;
+    }
+
+    if (ev.type == EventType::Replace) {
+        ++events_processed_;
+        auto found = index_.find(ev.order_id);
+        if (found == index_.end()) {
+            ++unknown_order_events_;
+            return;
+        }
+        replace_order(ev, found->second);
+        return;
+    }
+
+    apply(to_legacy(ev));
+}
+
+// ITCH 'U': the original reference is removed outright and a fresh order is
+// added at the back of the (possibly new) level. Side is inherited from the
+// resting order, because the wire message does not carry one.
+void OrderBook::replace_order(const MarketEvent& ev, OrderRef& ref) {
+    const Side side = ref.side;
+    const Price old_price = ref.price;
+
+    level_for(side, old_price).remove(ref.it);
+    index_.erase(ev.order_id);
+    erase_if_empty(side, old_price);
+
+    if (ev.quantity == 0) {
+        return;  // replace-to-zero is just a delete
+    }
+    // A replace onto a live id would corrupt the index; treat as an anomaly.
+    if (ev.new_order_id != ev.order_id && index_.count(ev.new_order_id) != 0) {
+        ++unknown_order_events_;
+        return;
+    }
+    PriceLevel& new_level = level_for(side, ev.price);
+    auto it = new_level.add(ev.new_order_id, static_cast<Qty>(ev.quantity));
+    index_.emplace(ev.new_order_id, OrderRef{side, ev.price, it});
+}
+
 void OrderBook::clear() {
     bids_.clear();
     asks_.clear();
@@ -221,6 +267,26 @@ std::optional<Qty> OrderBook::queue_ahead(OrderId id) const {
         return std::nullopt;
     }
     return level->qty_ahead_of(ref.it);
+}
+
+std::vector<OrderId> OrderBook::queue_at(Side side, Price price) const {
+    std::vector<OrderId> out;
+    const PriceLevel* level = nullptr;
+    if (side == Side::Bid) {
+        auto it = bids_.find(price);
+        if (it != bids_.end()) level = &it->second;
+    } else {
+        auto it = asks_.find(price);
+        if (it != asks_.end()) level = &it->second;
+    }
+    if (level == nullptr) {
+        return out;
+    }
+    out.reserve(level->order_count());
+    for (const RestingOrder& o : level->queue()) {
+        out.push_back(o.id);
+    }
+    return out;
 }
 
 }  // namespace itch

@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "itch_engine/market_event.hpp"
 #include "itch_engine/price_level.hpp"
 #include "itch_engine/types.hpp"
 
@@ -47,6 +48,13 @@ public:
     // the standard tolerant stance for mid-session feed anomalies.
     void apply(const Event& ev);
 
+    // Same book, fed from the common internal representation that both the
+    // historical and the live feed produce. Delete and Replace have no legacy
+    // Event spelling that round-trips (Replace needs the resting order's side,
+    // which only the index knows), so they are handled here rather than in a
+    // lossy conversion. Everything else is exactly to_legacy() + apply().
+    void apply(const MarketEvent& ev);
+
     // Drops every resting order and price level. The venue emits this at
     // session start and when a halt resumes; without it, pre-halt orders
     // rest forever in the reconstruction.
@@ -79,6 +87,12 @@ public:
     // position). nullopt if the order is not resting. Not on the hot path.
     std::optional<Qty> queue_ahead(OrderId id) const;
 
+    // Order ids resting at a price, front of queue first. Empty if the level
+    // is absent. Test/diagnostic only - it is what lets the differential test
+    // compare exact FIFO order in linear time instead of calling queue_ahead
+    // once per order, which is quadratic.
+    std::vector<OrderId> queue_at(Side side, Price price) const;
+
 private:
     struct OrderRef {
         Side side;
@@ -93,6 +107,7 @@ private:
     void cancel_order(const Event& ev, OrderRef& ref);
     void modify_order(const Event& ev, OrderRef& ref);
     void execute_order(const Event& ev, OrderRef& ref);
+    void replace_order(const MarketEvent& ev, OrderRef& ref);
 
     PriceLevel& level_for(Side side, Price price);
     void erase_if_empty(Side side, Price price);

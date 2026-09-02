@@ -1,0 +1,103 @@
+{
+  "note": "Network-to-book pipeline, measured with cpp/bench/bench_pipeline.cpp on an idle machine. These are HOST PROCESSING numbers: packet already in memory, to book updated. They are not network-to-book latency, which additionally includes NIC, driver and kernel time. Reproduce with: build/cpp/bench_pipeline --capture data/capture/AAPL_2026-07-30.itchcap --cpu 2 --repeats 5 --json",
+  "machine": {
+    "os": "Windows 11 Pro 26200",
+    "compiler": "MSVC 19.44 (VS 2022), /O2 Release",
+    "tsc_ghz": 4.3,
+    "tsc_invariant": true,
+    "timer_overhead_ticks": 43,
+    "pinned_cpu": 2,
+    "memory_locked": false,
+    "realtime_scheduling": false
+  },
+  "input": {
+    "symbol": "AAPL",
+    "day": "2026-07-30",
+    "source": "real Databento XNAS.ITCH day, re-encoded as ITCH 5.0 in MoldUDP64",
+    "messages": 14270119,
+    "datagrams": 309944,
+    "messages_per_datagram": 46.0,
+    "capture_mib": 409.4,
+    "note": "normalized after dropping the 199,781 duplicate execution-cancels; see validation/validate_against_exchange.py"
+  },
+  "stage_ns_per_message": {
+    "moldudp64_transport": 2.62,
+    "itch_parse": 4.67,
+    "low_latency_book_apply": 15.97,
+    "end_to_end": 23.27,
+    "research_book_apply": 115.3
+  },
+  "throughput_messages_per_second": {
+    "moldudp64_only": 381302832,
+    "mold_plus_parse": 137102894,
+    "complete_pipeline_low_latency_book": 42979089,
+    "complete_pipeline_research_book": 8156702
+  },
+  "allocations_per_message": 0.0,
+  "latency_ns": {
+    "itch_parse_per_message": {
+      "p50": 30,
+      "p90": 30,
+      "p99": 30,
+      "p99.9": 60,
+      "p99.99": 190
+    },
+    "book_apply_per_message": {
+      "p50": 40,
+      "p90": 50,
+      "p99": 70,
+      "p99.9": 150,
+      "p99.99": 380
+    },
+    "parse_plus_book_per_message": {
+      "p50": 80,
+      "p90": 90,
+      "p99": 110,
+      "p99.9": 200,
+      "p99.99": 490
+    },
+    "whole_datagram": {
+      "p50": 1060,
+      "p90": 1300,
+      "p99": 1620,
+      "p99.9": 4300,
+      "p99.99": 12390
+    }
+  },
+  "book_benchmark_4m_synthetic_events": {
+    "research_ns_per_event": 120.1,
+    "low_latency_ns_per_event": 17.0,
+    "research_allocations_per_event": 1.0638,
+    "low_latency_allocations_per_event": 0.0,
+    "speedup_mean": 7.06,
+    "speedup_p99": 3.71
+  },
+  "dispatch_ns_per_event": {
+    "static_templates": 24.88,
+    "virtual_two_vcalls": 32.81,
+    "virtual_overhead_percent": 31.8
+  },
+  "book_capacity_observed": {
+    "peak_resting_orders": 55683,
+    "peak_price_levels": 9257,
+    "off_grid_levels": 25,
+    "order_index_average_probes": 1.175,
+    "order_index_max_probe": 13
+  },
+  "reproducibility": {
+    "independent_runs_end_to_end_ns": [
+      23.429,
+      23.375,
+      23.291
+    ],
+    "spread_percent": 0.6
+  },
+  "exchange_validation": {
+    "schema": "mbp-10",
+    "checkpoints": 3774380,
+    "levels_per_side": 10,
+    "field_comparisons": 226462800,
+    "mismatches": 0,
+    "match_percent": 100.0
+  }
+}

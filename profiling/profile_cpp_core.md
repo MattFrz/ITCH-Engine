@@ -18,7 +18,7 @@ Raw numbers land in `profiling/results/latency_percentiles.json`.
 | `apply_event` (scalar, one crossing per event) | **3.79** | 3.3 | 5.8 | 11.2 |
 | `apply_batch` (one crossing for the day) | **0.60** | - | - | - |
 
-- Pure C++ throughput (batch path): **~1.68M events/s** over 14.5M real
+- Pure C++ throughput (batch path): **~1.68M events/s** over 14.3M real
   messages.
 - Boundary overhead (scalar minus batch): **~3.2 µs/event**. That is, ~84%
   of the scalar per-event cost is the Python↔C++ crossing - argument
@@ -67,6 +67,20 @@ next optimization steps, in order of expected payoff, would be:
    far tail;
 3. an object pool for queue nodes to kill the per-add allocation.
 
-None of these are needed to hit the project's targets, so they are
-documented rather than done - the profile says the boundary, not the book,
-is where the time goes in the scalar path the backtester actually uses.
+For the historical path this analysis still stands: the boundary, not the
+book, is where the time goes in the scalar path the backtester uses, so none
+of the three is needed to hit this project's targets.
+
+All three have since been done anyway, in a *second* book built for the
+network-to-book path rather than as an edit to this one - see
+[docs/low_latency_architecture.md](../docs/low_latency_architecture.md). On the
+same real session, measured with the same methodology:
+
+| | research book | low-latency book |
+|---|---|---|
+| mean | 113.84 ns/message | **15.78 ns/message** |
+| p99 | 260 ns | **70 ns** |
+| allocations/event | 1.0638 | **0** |
+
+The research book is unchanged and remains the reference both are validated
+against.
